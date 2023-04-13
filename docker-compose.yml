@@ -1,0 +1,69 @@
+# docker-compose.yml
+
+version: "3.9"
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: web-container
+    depends_on:
+      - database
+      - idprovider
+    restart: always
+    volumes:
+      - ./:/app
+      - node-modules:/app/node_modules
+      - next-data:/app/.next
+    ports:
+      - 3000:3000
+    environment:
+      DB_CONNECTIONSTRING: "postgres://example_user:example_password@database:5432/inventory_management"
+      NEXTAUTH_URL: "https://3000-${GITPOD_WORKSPACE_ID}.${GITPOD_WORKSPACE_CLUSTER_HOST}/api/auth" # For use with Gitpod. Otherwise use `http://localhost:3000/api/auth` for development on local machine.
+      NEXTAUTH_URL_INTERNAL: "http://localhost:3000/api/auth"
+      NEXTAUTH_SECRET: "XRHdKuPodU2FiNRKZJ6ipcRag9KM4PwRwuj6k45BVdA="
+      KEYCLOAK_ISSUER: "https://idprovider:8443/realms/test"
+      KEYCLOAK_CLIENT: "develop-client"
+      KEYCLOAK_SECRET: "GF4Hn2RhI8zfWe8WSPIgvgA9kYG4htkF"
+      NODE_TLS_REJECT_UNAUTHORIZED: 0
+  
+  database:
+    image: postgres
+    container_name: postgres-container
+    restart: always
+    environment:
+      POSTGRES_USER: example_user
+      POSTGRES_PASSWORD: example_password
+      POSTGRES_DB: inventory_management
+    ports:
+      - '5432:5432'
+    volumes: 
+      - database-volume:/var/lib/postgresql/data
+  
+  idprovider:
+    image: quay.io/keycloak/keycloak
+    command: start-dev --import-realm
+    user: root
+    container_name: idprovider-container
+    restart: always
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_PROXY: passthrough
+      KC_HOSTNAME: "8080-${GITPOD_WORKSPACE_ID}.${GITPOD_WORKSPACE_CLUSTER_HOST}"
+      KC_HTTPS_CERTIFICATE_FILE: "/certs/cert.pem"
+      KC_HTTPS_CERTIFICATE_KEY_FILE: "/certs/key.pem"
+    ports:
+      - '8080:8080'
+    volumes:
+      - keycloak-data:/opt/keycloak/data
+      - ./keycloak/certs:/certs:ro
+      - ./keycloak/realms:/opt/keycloak/data/import
+
+volumes:
+  database-volume:
+  node-modules:
+  next-data:
+  keycloak-data:
